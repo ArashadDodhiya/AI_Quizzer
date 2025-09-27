@@ -1,0 +1,231 @@
+{
+	"info": {
+		"_postman_id": "3cbbad46-46fa-4f33-8aa2-f3fec8d45445",
+		"name": "AI_Quizzer",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "34932113"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"username\": \"student1\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/auth/login",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GenQuiz",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InN0dWRlbnQxIiwidXNlcklkIjoiNjhkODNjNTVkODg2YmMzNGY4MTZhMDM0IiwiaWF0IjoxNzU5MDAxNjg1LCJleHAiOjE3NTk2MDY0ODV9.-OPsYDGxcxNopvUPme3ol3jARsl-27DKpSEKNIwV0KM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"grade\": 5,\r\n  \"subject\": \"Maths\",\r\n  \"totalQuestions\": 5,\r\n  \"maxScore\": 10\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/quizzes/generate",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"quizzes",
+						"generate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hint",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"username\": \"student1\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/quizzes/68d8462be3a76fb8cb8e51ce/hint?questionId=68d8462be3a76fb8cb8e51d0",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"quizzes",
+						"68d8462be3a76fb8cb8e51ce",
+						"hint"
+					],
+					"query": [
+						{
+							"key": "questionId",
+							"value": "68d8462be3a76fb8cb8e51d0"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "submit",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"quizId\": \"68d8462be3a76fb8cb8e51ce\",\r\n  \"responses\": [\r\n    { \"questionId\": \"68d8462be3a76fb8cb8e51d0\", \"userResponse\": \"B\" },\r\n    { \"questionId\": \"68d8462be3a76fb8cb8e51d1\", \"userResponse\": \"C\" }\r\n  ]\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/quizzes/submit",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"quizzes",
+						"submit"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "history",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/quizzes/history?grade=5&subject=Maths",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"quizzes",
+						"history"
+					],
+					"query": [
+						{
+							"key": "grade",
+							"value": "5"
+						},
+						{
+							"key": "subject",
+							"value": "Maths"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "retry",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"responses\": [\r\n    { \"questionId\": \"68d8462be3a76fb8cb8e51d0\", \"userResponse\": \"C\" },\r\n    { \"questionId\": \"68d8462be3a76fb8cb8e51d1\", \"userResponse\": \"D\" }\r\n  ]\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseURL}}/api/quizzes/68d8462be3a76fb8cb8e51ce/retry",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"quizzes",
+						"68d8462be3a76fb8cb8e51ce",
+						"retry"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "leaderboard",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseURL}}/api/leaderboard?grade=5&subject=Maths",
+					"host": [
+						"{{baseURL}}"
+					],
+					"path": [
+						"api",
+						"leaderboard"
+					],
+					"query": [
+						{
+							"key": "grade",
+							"value": "5"
+						},
+						{
+							"key": "subject",
+							"value": "Maths"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseURL",
+			"value": "http://localhost:4000",
+			"type": "default"
+		}
+	]
+}
