@@ -2,39 +2,30 @@
 const Quiz = require('../models/Quiz');
 const Question = require('../models/Question');
 const Submission = require('../models/Submission');
+// switched from simulator to Groq AI
 const ai = require('../utils/aiSimulator');
 const mongoose = require('mongoose');
 
 /**
- * Generate a new quiz (AI -> simulated)
+ * Generate a new quiz (AI -> Groq)
  * Body: { grade, subject, totalQuestions, maxScore, difficulty (optional) }
  */
 exports.generateQuiz = async (req, res) => {
   try {
-    const { grade, subject, totalQuestions = 10, maxScore = 10 } = req.body;
-    if (!grade || !subject) return res.status(400).json({ error: 'grade and subject required' });
-
-    // derive past performance for user to adapt difficulty
-    const pastSubs = await Submission.find({ user: req.user._id }).populate({
-      path: 'quiz',
-      select: 'totalQuestions maxScore difficultyDistribution'
-    });
-
-    // compute simple rates
-    const pastPerformance = { easyCorrectRate: null, mediumCorrectRate: null, hardCorrectRate: null };
-    if (pastSubs.length > 0) {
-      // naive calculation: average percent correct on difficulties using stored quizzes
-      // For simplicity, leave null; adaptive behavior in ai.makeQuizPayload will be minimal
+    const { grade, subject, totalQuestions = 10, maxScore = 10, difficulty = 'MEDIUM' } = req.body;
+    if (!grade || !subject) {
+      return res.status(400).json({ error: 'grade and subject required' });
     }
 
-    const payload = ai.makeQuizPayload({ grade, subject, totalQuestions, maxScore, pastPerformance });
+    // Call Groq AI to generate questions
+    const questions = await ai.generateQuiz({ grade, subject, totalQuestions, difficulty });
 
-    // Save questions to DB
-    const questionDocs = [];
-    for (const q of payload.questions) {
-      const doc = await Question.create(q);
-      questionDocs.push(doc);
+    if (!questions || questions.length === 0) {
+      return res.status(500).json({ error: 'AI failed to generate quiz questions' });
     }
+
+    // Save questions in DB
+    const questionDocs = await Question.insertMany(questions);
 
     const quiz = await Quiz.create({
       creator: req.user._id,
@@ -42,7 +33,7 @@ exports.generateQuiz = async (req, res) => {
       subject,
       totalQuestions,
       maxScore,
-      difficultyDistribution: payload.difficultyDistribution,
+      difficultyDistribution: { easy: 0, medium: totalQuestions, hard: 0 }, // default since Groq decides difficulty
       questions: questionDocs.map((q) => q._id)
     });
 
@@ -51,7 +42,7 @@ exports.generateQuiz = async (req, res) => {
 
     res.json({ quiz: populated });
   } catch (err) {
-    console.error(err);
+    console.error('Error generating quiz:', err);
     res.status(500).json({ error: 'server error' });
   }
 };
@@ -62,17 +53,17 @@ exports.generateQuiz = async (req, res) => {
  */
 exports.getHint = async (req, res) => {
   try {
-    const { quizId } = req.params;
     const { questionId } = req.query;
     if (!questionId) return res.status(400).json({ error: 'questionId required' });
 
     const question = await Question.findById(questionId);
     if (!question) return res.status(404).json({ error: 'question not found' });
 
-    const hint = ai.generateHintForQuestion(question);
+    // Groq hint
+    const hint = await ai.getHint(question.text);
     res.json({ hint });
   } catch (err) {
-    console.error(err);
+    console.error('Error getting hint:', err);
     res.status(500).json({ error: 'server error' });
   }
 };
@@ -84,33 +75,54 @@ exports.getHint = async (req, res) => {
 exports.submitQuiz = async (req, res) => {
   try {
     const { quizId, responses } = req.body;
-    if (!quizId || !responses) return res.status(400).json({ error: 'quizId and responses required' });
+    if (!quizId || !responses) {
+      return res.status(400).json({ error: 'quizId and responses required' });
+    }
 
     const quiz = await Quiz.findById(quizId).populate('questions');
     if (!quiz) return res.status(404).json({ error: 'quiz not found' });
 
-    const evaluation = ai.evaluateSubmission(quiz, responses);
+    let score = 0;
+    const perQuestionScore = quiz.maxScore / quiz.totalQuestions;
+    const mistakes = [];
+
+    for (const resp of responses) {
+      const q = quiz.questions.find((x) => String(x._id) === String(resp.questionId));
+      if (!q) continue;
+      if (resp.userResponse === q.correctOption) {
+        score += perQuestionScore;
+      } else {
+        mistakes.push({
+          questionId: q._id,
+          text: q.text,
+          correctOption: q.correctOption,
+          userResponse: resp.userResponse
+        });
+      }
+    }
+
+    // Get AI suggestions for improvement
+    const suggestions = await ai.getSuggestions(mistakes);
 
     // Save submission
     const submission = await Submission.create({
       quiz: quiz._id,
       user: req.user._id,
       responses: responses.map((r) => ({ question: r.questionId, userResponse: r.userResponse })),
-      score: evaluation.score,
-      maxScore: evaluation.maxScore,
+      score,
+      maxScore: quiz.maxScore,
       isRetry: false
     });
 
-    // return evaluation + suggestions
     res.json({
       submissionId: submission._id,
-      score: evaluation.score,
-      maxScore: evaluation.maxScore,
-      mistakes: evaluation.mistakes,
-      suggestions: evaluation.suggestions
+      score,
+      maxScore: quiz.maxScore,
+      mistakes,
+      suggestions
     });
   } catch (err) {
-    console.error(err);
+    console.error('Error submitting quiz:', err);
     res.status(500).json({ error: 'server error' });
   }
 };
@@ -125,14 +137,15 @@ exports.getHistory = async (req, res) => {
     const filter = { user: req.user._id };
 
     if (grade) {
-      // find quizzes of that grade, then submissions linked to them
       const quizzes = await Quiz.find({ grade: Number(grade) }).select('_id');
       filter.quiz = { $in: quizzes.map((q) => q._id) };
     }
 
     if (subject) {
       const quizzes = await Quiz.find({ subject }).select('_id');
-      filter.quiz = filter.quiz ? { $in: quizzes.map((q) => q._id) } : { $in: quizzes.map((q) => q._id) };
+      filter.quiz = filter.quiz
+        ? { $in: quizzes.map((q) => q._id) }
+        : { $in: quizzes.map((q) => q._id) };
     }
 
     if (minMarks || maxMarks) {
@@ -145,7 +158,6 @@ exports.getHistory = async (req, res) => {
       filter.completedAt = {};
       if (from) filter.completedAt.$gte = new Date(from);
       if (to) {
-        // include entire day
         const toDate = new Date(to);
         toDate.setHours(23, 59, 59, 999);
         filter.completedAt.$lte = toDate;
@@ -160,13 +172,13 @@ exports.getHistory = async (req, res) => {
 
     res.json({ submissions });
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching history:', err);
     res.status(500).json({ error: 'server error' });
   }
 };
 
 /**
- * Retry a quiz: create a new submission after re-evaluation (or treat as a new attempt)
+ * Retry a quiz: create a new submission after re-evaluation
  * POST /api/quizzes/:quizId/retry
  * Body: { responses: [...] }
  */
@@ -179,27 +191,45 @@ exports.retryQuiz = async (req, res) => {
     const quiz = await Quiz.findById(quizId).populate('questions');
     if (!quiz) return res.status(404).json({ error: 'quiz not found' });
 
-    const evaluation = ai.evaluateSubmission(quiz, responses);
+    let score = 0;
+    const perQuestionScore = quiz.maxScore / quiz.totalQuestions;
+    const mistakes = [];
+
+    for (const resp of responses) {
+      const q = quiz.questions.find((x) => String(x._id) === String(resp.questionId));
+      if (!q) continue;
+      if (resp.userResponse === q.correctOption) {
+        score += perQuestionScore;
+      } else {
+        mistakes.push({
+          questionId: q._id,
+          text: q.text,
+          correctOption: q.correctOption,
+          userResponse: resp.userResponse
+        });
+      }
+    }
+
+    const suggestions = await ai.getSuggestions(mistakes);
 
     const submission = await Submission.create({
       quiz: quiz._id,
       user: req.user._id,
       responses: responses.map((r) => ({ question: r.questionId, userResponse: r.userResponse })),
-      score: evaluation.score,
-      maxScore: evaluation.maxScore,
+      score,
+      maxScore: quiz.maxScore,
       isRetry: true
     });
 
-    // old submissions remain accessible via history endpoint
     res.json({
       submissionId: submission._id,
-      score: evaluation.score,
-      maxScore: evaluation.maxScore,
-      mistakes: evaluation.mistakes,
-      suggestions: evaluation.suggestions
+      score,
+      maxScore: quiz.maxScore,
+      mistakes,
+      suggestions
     });
   } catch (err) {
-    console.error(err);
+    console.error('Error retrying quiz:', err);
     res.status(500).json({ error: 'server error' });
   }
 };
