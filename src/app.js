@@ -7,6 +7,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const quizRoutes = require('./routes/quizzes');
+const leaderboardRoutes = require('./routes/leaderboard');
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.get('/', (req, res) => res.json({ ok: true, service: 'AI Quizzer' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 
 // global error handler
