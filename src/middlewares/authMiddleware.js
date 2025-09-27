@@ -4,16 +4,26 @@ const User = require('../models/User');
 
 async function authMiddleware(req, res, next) {
   try {
-    const header = req.headers.authorization;
-    if (!header) return res.status(401).json({ error: 'Missing Authorization header' });
-    const parts = header.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Bearer') return res.status(401).json({ error: 'Invalid Authorization format' });
+    let token;
 
-    const token = parts[1];
+    // First check Authorization header
+    const header = req.headers.authorization;
+    if (header && header.startsWith("Bearer ")) {
+      token = header.split(" ")[1];
+    }
+
+    // Fallback to cookie
+    if (!token && req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) return res.status(401).json({ error: 'Missing Authorization or cookie token' });
+
     const decoded = jwtUtils.verify(token);
-    // Basic: ensure user exists or create user record
+
     let user = await User.findOne({ username: decoded.username });
     if (!user) user = await User.create({ username: decoded.username });
+
     req.user = user;
     next();
   } catch (err) {
