@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const cors = require('cors');
 
 const connectDB = require('./config/db');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 
@@ -13,6 +14,8 @@ app.use(express.json());
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 app.get('/', (req, res) => res.json({ ok: true, service: 'AI Quizzer' }));
+
+app.use('/api/auth', authRoutes);
 
 
 // global error handler
