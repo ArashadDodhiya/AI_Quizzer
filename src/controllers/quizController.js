@@ -18,24 +18,30 @@ exports.generateQuiz = async (req, res) => {
     }
 
     // Call Groq AI to generate questions
-    const questions = await ai.generateQuiz({ grade, subject, totalQuestions, difficulty });
-
-    if (!questions || questions.length === 0) {
+    const questionsData = await ai.generateQuiz({ grade, subject, totalQuestions, difficulty });
+    if (!questionsData || questionsData.length === 0) {
       return res.status(500).json({ error: 'AI failed to generate quiz questions' });
     }
 
-    // Save questions in DB
-    const questionDocs = await Question.insertMany(questions);
-
+    // First create the Quiz document
     const quiz = await Quiz.create({
       creator: req.user._id,
       grade,
       subject,
       totalQuestions,
       maxScore,
-      difficultyDistribution: { easy: 0, medium: totalQuestions, hard: 0 }, // default since Groq decides difficulty
-      questions: questionDocs.map((q) => q._id)
+      difficultyDistribution: { easy: 0, medium: totalQuestions, hard: 0 }, // default
+      questions: [] // will update after creating questions
     });
+
+    // Assign quiz ID to each question
+    const questionDocs = await Question.insertMany(
+      questionsData.map((q) => ({ ...q, quiz: quiz._id }))
+    );
+
+    // Update quiz with question IDs
+    quiz.questions = questionDocs.map((q) => q._id);
+    await quiz.save();
 
     // populate questions for response
     const populated = await Quiz.findById(quiz._id).populate('questions');
@@ -46,6 +52,7 @@ exports.generateQuiz = async (req, res) => {
     res.status(500).json({ error: 'server error' });
   }
 };
+
 
 /**
  * Ask for a hint for a question

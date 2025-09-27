@@ -7,7 +7,7 @@ const questionSchema = new mongoose.Schema({
   correctOption: { type: String, required: true }, // option letter e.g. "A"
   grade: { type: Number },
   subject: { type: String },
-  difficulty: { type: String, enum: ['EASY', 'MEDIUM', 'HARD'], default: 'EASY' },
+  difficulty: { type: String, enum: ["EASY", "MEDIUM", "HARD", "easy", "medium", "hard"], default: 'EASY' },
   hint: { type: String }, // hint text
   createdAt: { type: Date, default: Date.now }
 });
