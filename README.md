@@ -40,6 +40,10 @@ A microservice-based AI-powered quiz application with advanced features includin
 ```
 
 ## 🚀 Quick Start
+- Deploy link
+```bash
+  https://ai-quizzer-3.onrender.com
+```
 
 ### Prerequisites
 - Node.js 18+ 
@@ -177,9 +181,6 @@ GET /api/leaderboard?grade=5&subject=Math&limit=10
 GET /api/quizzes/:quizId/hint?questionId=:questionId
 ```
 
-### Interactive API Testing
-Use the provided HTML documentation for live API testing: [API Documentation](./docs/api-documentation.html)
-
 ## 🤖 AI Integration Details
 
 ### Groq API Integration
@@ -237,10 +238,10 @@ npm run seed         # Seed sample data
 ```
 
 ### Manual Testing
-1. Import the Postman collection: `./docs/AI-Quizzer-Collection.json`
+1. Import the Postman collection: `AI-Quizzer-Collection.json`
 2. Set environment variables in Postman
 3. Run the collection tests
-4. Use the interactive HTML documentation for browser testing
+   
 ```
 ```
 ## 🐛 Known Issues
