@@ -242,7 +242,7 @@ npm run seed         # Seed sample data
 3. Run the collection tests
 4. Use the interactive HTML documentation for browser testing
 ```
-
+```
 ## 🐛 Known Issues
 
 1. **AI Service Latency**: Groq API responses can take 2-5 seconds during peak hours
