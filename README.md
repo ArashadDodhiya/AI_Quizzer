@@ -44,14 +44,13 @@ A microservice-based AI-powered quiz application with advanced features includin
 ### Prerequisites
 - Node.js 18+ 
 - MongoDB 6.0+
-- Redis 7.0+ (optional, for caching)
-- Docker & Docker Compose (optional)
+- Render with Docker environment
 
 ### Installation
 
 1. **Clone the repository**
 ```bash
-git clone <repository-url>
+git clone [<repository-url>](https://github.com/ArashadDodhiya/AI_Quizzer/edit/master)
 cd ai-quizzer
 ```
 
@@ -73,7 +72,6 @@ NODE_ENV=development
 
 # Database
 MONGODB_URI=mongodb://localhost:27017/ai-quizzer
-REDIS_URL=redis://localhost:6379
 
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key
@@ -81,9 +79,9 @@ JWT_EXPIRE_TIME=7d
 
 # AI Service (Groq)
 GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=mixtral-8x7b-32768
+GROQ_MODEL=llama-3.1-8b-instant
 
-# Email Service (Optional)
+# Email Service (Optional)(not implemented)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -104,24 +102,6 @@ npm run migrate
 # Development mode
 npm run dev
 
-# Production mode
-npm start
-```
-
-### Using Docker 🐳
-
-```bash
-# Build and start all services
-docker-compose up --build
-
-# Start in background
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
 ```
 
 ## 📡 API Documentation
@@ -243,72 +223,7 @@ Use the provided HTML documentation for live API testing: [API Documentation](./
 - Study recommendations
 - Practice question suggestions
 - Learning resource links
-```
 
-## 💾 Database Design
-
-### MongoDB Collections
-
-#### Users Collection
-```javascript
-{
-  _id: ObjectId,
-  username: String,
-  email: String (optional),
-  createdAt: Date,
-  lastLogin: Date,
-  preferences: {
-    subjects: [String],
-    difficulty: String
-  }
-}
-```
-
-#### Quizzes Collection
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId,
-  grade: Number,
-  subject: String,
-  title: String,
-  questions: [{
-    questionId: ObjectId,
-    question: String,
-    options: [String],
-    correctAnswer: String,
-    difficulty: String,
-    explanation: String,
-    hints: [String]
-  }],
-  maxScore: Number,
-  difficulty: String,
-  createdAt: Date,
-  status: String // 'active', 'completed', 'archived'
-}
-```
-
-#### Submissions Collection
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId,
-  quizId: ObjectId,
-  responses: [{
-    questionId: ObjectId,
-    userResponse: String,
-    correctAnswer: String,
-    isCorrect: Boolean,
-    timeSpent: Number,
-    hintsUsed: Number
-  }],
-  score: Number,
-  maxScore: Number,
-  percentage: Number,
-  submittedAt: Date,
-  aiSuggestions: [String],
-  attempt: Number
-}
 ```
 
 ### Database Migrations
@@ -318,62 +233,7 @@ Run the following to set up your database:
 npm run migrate:up    # Run all migrations
 npm run migrate:down  # Rollback migrations
 npm run seed         # Seed sample data
-```
 
-## 🗂️ Project Structure
-
-```
-ai-quizzer/
-├── src/
-│   ├── controllers/        # Route controllers
-│   │   ├── authController.js
-│   │   ├── quizController.js
-│   │   └── leaderboardController.js
-│   ├── models/            # Database models
-│   │   ├── User.js
-│   │   ├── Quiz.js
-│   │   └── Submission.js
-│   ├── services/          # Business logic
-│   │   ├── aiService.js
-│   │   ├── quizService.js
-│   │   ├── emailService.js
-│   │   └── cacheService.js
-│   ├── middleware/        # Express middleware
-│   │   ├── auth.js
-│   │   ├── validation.js
-│   │   └── rateLimit.js
-│   ├── routes/            # API routes
-│   │   ├── auth.js
-│   │   ├── quizzes.js
-│   │   └── leaderboard.js
-│   ├── utils/             # Utility functions
-│   │   ├── database.js
-│   │   ├── logger.js
-│   │   └── helpers.js
-│   └── app.js            # Express app setup
-├── migrations/            # Database migrations
-├── tests/                # Test suites
-├── docs/                 # Documentation
-├── docker-compose.yml    # Docker configuration
-├── Dockerfile           # Container definition
-└── README.md           # This file
-```
-
-## 🧪 Testing
-
-### Run Tests
-```bash
-# All tests
-npm test
-
-# Unit tests
-npm run test:unit
-
-# Integration tests  
-npm run test:integration
-
-# Coverage report
-npm run test:coverage
 ```
 
 ### Manual Testing
@@ -381,68 +241,7 @@ npm run test:coverage
 2. Set environment variables in Postman
 3. Run the collection tests
 4. Use the interactive HTML documentation for browser testing
-
-## 🚀 Deployment
-
-### Heroku Deployment
-```bash
-# Login to Heroku
-heroku login
-
-# Create app
-heroku create your-ai-quizzer-app
-
-# Set environment variables
-heroku config:set NODE_ENV=production
-heroku config:set GROQ_API_KEY=your-key
-heroku config:set JWT_SECRET=your-secret
-
-# Add MongoDB Atlas
-heroku addons:create mongolab:sandbox
-
-# Add Redis
-heroku addons:create heroku-redis:hobby-dev
-
-# Deploy
-git push heroku main
 ```
-
-### Digital Ocean / AWS Deployment
-See `deployment/` folder for platform-specific instructions.
-
-## 🎯 Performance Features
-
-### Redis Caching Strategy
-```javascript
-// Cached Data:
-- Quiz templates (TTL: 1 hour)
-- User quiz history (TTL: 30 minutes)  
-- Leaderboard data (TTL: 15 minutes)
-- AI-generated content (TTL: 24 hours)
-
-// Cache Keys:
-- quiz:template:{grade}:{subject}
-- user:{userId}:history
-- leaderboard:{grade}:{subject}
-- ai:hint:{questionId}
-```
-
-### Rate Limiting
-```javascript
-// API Rate Limits:
-- Authentication: 10 req/min per IP
-- Quiz Generation: 5 req/min per user
-- General APIs: 100 req/min per user
-- AI Operations: 20 req/min per user
-```
-
-## 📧 Email Integration
-
-Configure SMTP settings in `.env` for:
-- Quiz completion notifications
-- Performance reports
-- Achievement badges
-- Weekly progress summaries
 
 ## 🐛 Known Issues
 
@@ -455,26 +254,6 @@ Configure SMTP settings in `.env` for:
 3. **Quiz State Management**: Large quizzes (50+ questions) may cause memory issues
    - **Mitigation**: Implemented pagination and lazy loading
 
-## 📊 Monitoring & Logging
-
-### Application Logs
-```bash
-# View logs
-npm run logs
-
-# Error logs only
-npm run logs:error
-
-# Performance metrics
-npm run metrics
-```
-
-### Health Checks
-```http
-GET /api/health
-GET /api/health/database
-GET /api/health/ai-service
-```
 
 ## 🤝 Contributing
 
@@ -484,26 +263,14 @@ GET /api/health/ai-service
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support
-
-For technical support or questions:
-- **Email**: hiring.support@playpowerlabs.com
-- **Documentation**: [Interactive API Docs](./docs/api-documentation.html)
-- **Issues**: Create a GitHub issue for bug reports
 
 ## 🙏 Acknowledgments
 
 - **Groq AI** for providing the AI inference API
 - **MongoDB** for the flexible document database
-- **Redis** for high-performance caching
-- **Heroku** for seamless deployment platform
+- **Render** for seamless deployment platform with Docker env
 
 ---
 
-**Built with ❤️ for PlayPower Labs**
 
 > **Note**: This application is built as part of a technical assessment. It demonstrates modern web development practices, AI integration, and scalable architecture design.
