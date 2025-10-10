@@ -1,2 +1,2 @@
 # AI_Quizzer
-A Quiz giving tool with ai feature
+Whole code is in the master branch
