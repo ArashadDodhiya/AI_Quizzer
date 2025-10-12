@@ -189,7 +189,7 @@ exports.getHistory = async (req, res) => {
  * POST /api/quizzes/:quizId/retry
  * Body: { responses: [...] }
  */
-exports.retryQuiz = async (req, res) => {
+exports.retryQuiz = async (req, res) => { // resubmit logic
   try {
     const { quizId } = req.params;
     const { responses } = req.body;
@@ -240,3 +240,19 @@ exports.retryQuiz = async (req, res) => {
     res.status(500).json({ error: 'server error' });
   }
 };
+
+
+
+
+// exports.retryQuiz = async (req, res) => { // retry logic
+//   const { quizId } = req.params;
+//   const old = await Quiz.findById(quizId).lean();
+//   if (!old) return res.status(404).send('Quiz not found');
+//   const copy = await Quiz.create({
+//     title: old.title,
+//     questions: old.questions,
+//     duration: old.duration,
+//     startedAt: Date.now()
+//   });
+//   res.json({ newQuizId: copy._id, expiresAt: Date.now() + copy.duration*1000 });
+// };
