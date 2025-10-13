@@ -19,7 +19,7 @@ const submissionSchema = new mongoose.Schema({
 });
 
 // submissionSchema.index({ user: 1, quiz: 1 });
-submissionSchema.index({ user: 1, quiz: 1 }, { unique: true });
+submissionSchema.index({ user: 1, quiz: 1 }, { unique: true, partialFilterExpression: { isRetry: false } });
 
 
 module.exports = mongoose.model('Submission', submissionSchema);
