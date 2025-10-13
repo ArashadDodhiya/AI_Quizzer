@@ -82,55 +82,85 @@ exports.getHint = async (req, res) => {
 exports.submitQuiz = async (req, res) => {
   try {
     const { quizId, responses } = req.body;
-    if (!quizId || !responses) {
-      return res.status(400).json({ error: 'quizId and responses required' });
+    if (!quizId || !responses || !Array.isArray(responses)) {
+      return res
+        .status(400)
+        .json({ error: "quizId and valid responses array required" });
     }
 
-    const quiz = await Quiz.findById(quizId).populate('questions');
-    if (!quiz) return res.status(404).json({ error: 'quiz not found' });
+    // 1️⃣ Fetch quiz
+    const quiz = await Quiz.findById(quizId).populate("questions");
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
 
-    let score = 0;
     const perQuestionScore = quiz.maxScore / quiz.totalQuestions;
+    let score = 0;
     const mistakes = [];
 
+    // 2️⃣ Mapping for A/B/C/D → option values
+    const optionMap = ["A", "B", "C", "D"];
+
     for (const resp of responses) {
-      const q = quiz.questions.find((x) => String(x._id) === String(resp.questionId));
-      if (!q) continue;
-      if (resp.userResponse === q.correctOption) {
+      const question = quiz.questions.find(
+        (q) => String(q._id) === String(resp.questionId)
+      );
+      if (!question) continue;
+
+      let userAnswer = resp.userResponse;
+
+      // Convert A/B/C/D to actual option text
+      if (optionMap.includes(userAnswer)) {
+        const index = optionMap.indexOf(userAnswer);
+        userAnswer = question.options[index];
+      }
+
+      // Compare with correct answer
+      if (userAnswer === question.correctOption) {
         score += perQuestionScore;
       } else {
         mistakes.push({
-          questionId: q._id,
-          text: q.text,
-          correctOption: q.correctOption,
-          userResponse: resp.userResponse
+          questionId: question._id,
+          text: question.text,
+          correctOption: question.correctOption,
+          userResponse: userAnswer,
         });
       }
     }
 
-    // Get AI suggestions for improvement
-    const suggestions = await ai.getSuggestions(mistakes);
+    // 3️⃣ Get AI suggestions (optional)
+    let suggestions = [];
+    if (mistakes.length > 0 && ai?.getSuggestions) {
+      suggestions = await ai.getSuggestions(mistakes);
+    }
 
-    // Save submission
+    // 4️⃣ Save submission
     const submission = await Submission.create({
       quiz: quiz._id,
-      user: req.user._id,
-      responses: responses.map((r) => ({ question: r.questionId, userResponse: r.userResponse })),
+      user: req.user?._id || null, // if user is logged in via JWT middleware
+      responses: responses.map((r) => ({
+        question: r.questionId,
+        userResponse: r.userResponse,
+      })),
       score,
       maxScore: quiz.maxScore,
-      isRetry: false
+      isRetry: false,
+
+      
     });
 
-    res.json({
+    // 5️⃣ Send response
+    res.status(200).json({
+      message: "Quiz submitted successfully",
       submissionId: submission._id,
+      totalQuestions: quiz.totalQuestions,
       score,
       maxScore: quiz.maxScore,
+      correctAnswers: quiz.totalQuestions - mistakes.length,
       mistakes,
-      suggestions
+      suggestions,
     });
   } catch (err) {
-    console.error('Error submitting quiz:', err);
-    res.status(500).json({ error: 'server error' });
+    console.error("Error submitting quiz:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
