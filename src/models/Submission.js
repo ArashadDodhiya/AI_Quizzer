@@ -1,4 +1,5 @@
 // src/models/Submission.js
+const { truncates } = require('bcryptjs');
 const mongoose = require('mongoose');
 
 const responseSchema = new mongoose.Schema({
@@ -17,6 +18,8 @@ const submissionSchema = new mongoose.Schema({
   isRetry: { type: Boolean, default: false }
 });
 
-submissionSchema.index({ user: 1, quiz: 1 });
+// submissionSchema.index({ user: 1, quiz: 1 });
+submissionSchema.index({ user: 1, quiz: 1 }, { unique: true });
+
 
 module.exports = mongoose.model('Submission', submissionSchema);
