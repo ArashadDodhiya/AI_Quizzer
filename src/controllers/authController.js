@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
  */
 exports.register = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, role } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
@@ -16,7 +16,7 @@ exports.register = async (req, res) => {
     let user = await User.findOne({ username });
     if (user) return res.status(400).json({ error: 'Username already exists' });
 
-    user = await User.create({ username, password }); // password will be hashed in User model pre-save hook
+    user = await User.create({ username, password, role }); // password will be hashed in User model pre-save hook
 
     const token = jwtUtils.sign({ username: user.username, userId: user._id });
 
@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.json({ message: "Registration successful", user: { id: user._id, username: user.username } });
+    res.json({ message: "Registration successful", user: { id: user._id, username: user.username, role : user.role } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

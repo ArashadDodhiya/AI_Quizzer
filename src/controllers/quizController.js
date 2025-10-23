@@ -1,58 +1,78 @@
-// src/controllers/quizController.js
-const Quiz = require('../models/Quiz');
-const Question = require('../models/Question');
-const Submission = require('../models/Submission');
+const Quiz = require("../models/Quiz");
+const Question = require("../models/Question");
+const Submission = require("../models/Submission");
 // switched from simulator to Groq AI
-const ai = require('../utils/aiSimulator');
-const mongoose = require('mongoose');
+const ai = require("../utils/aiSimulator");
+const mongoose = require("mongoose");
 
 /**
  * Generate a new quiz (AI -> Groq)
  * Body: { grade, subject, totalQuestions, maxScore, difficulty (optional) }
  */
-exports.generateQuiz = async (req, res) => {
-  try {
-    const { grade, subject, totalQuestions = 10, maxScore = 10, difficulty = 'MEDIUM' } = req.body;
-    if (!grade || !subject) {
-      return res.status(400).json({ error: 'grade and subject required' });
-    }
+exports.generateQuiz = (req, res) => {
+  const {
+    grade,
+    subject,
+    totalQuestions = 10,
+    maxScore = 10,
+    difficulty = "MEDIUM",
+  } = req.body;
 
-    // Call Groq AI to generate questions
-    const questionsData = await ai.generateQuiz({ grade, subject, totalQuestions, difficulty });
-    if (!questionsData || questionsData.length === 0) {
-      return res.status(500).json({ error: 'AI failed to generate quiz questions' });
-    }
-
-    // First create the Quiz document
-    const quiz = await Quiz.create({
-      creator: req.user._id,
-      grade,
-      subject,
-      totalQuestions,
-      maxScore,
-      difficultyDistribution: { easy: 0, medium: totalQuestions, hard: 0 }, // default
-      questions: [] // will update after creating questions
-    });
-
-    // Assign quiz ID to each question
-    const questionDocs = await Question.insertMany(
-      questionsData.map((q) => ({ ...q, quiz: quiz._id }))
-    );
-
-    // Update quiz with question IDs
-    quiz.questions = questionDocs.map((q) => q._id);
-    await quiz.save();
-
-    // populate questions for response
-    const populated = await Quiz.findById(quiz._id).populate('questions');
-
-    res.json({ quiz: populated });
-  } catch (err) {
-    console.error('Error generating quiz:', err);
-    res.status(500).json({ error: 'server error' });
+  if (!grade || !subject) {
+    return res.status(400).json({ error: "grade and subject required" });
   }
-};
 
+  // 🧠 Create a promise to generate questions using AI
+  const quizPromise = new Promise((resolve, reject) => {
+    ai.generateQuiz({ grade, subject, totalQuestions, difficulty })
+      .then((questionsData) => {
+        if (questionsData && questionsData.length > 0) {
+          resolve(questionsData);
+        } else {
+          reject("AI failed to generate quiz questions");
+        }
+      })
+      .catch((err) => reject(err));
+  });
+
+  // 🧩 Handle the resolved data and continue DB operations
+  quizPromise
+    .then(async (questionsData) => {
+      // 1️⃣ Create quiz
+      const quiz = await Quiz.create({
+        creator: req.user._id,
+        grade,
+        subject,
+        totalQuestions,
+        maxScore,
+        difficultyDistribution: { easy: 0, medium: totalQuestions, hard: 0 },
+        questions: [],
+      });
+
+      // 2️⃣ Insert questions
+      const questionDocs = await Question.insertMany(
+        questionsData.map((q) => ({ ...q, quiz: quiz._id }))
+      );
+
+      // 3️⃣ Update quiz with question IDs
+      quiz.questions = questionDocs.map((q) => q._id);
+      await quiz.save();
+
+      // 4️⃣ Populate for response
+      const populatedQuiz = await Quiz.findById(quiz._id).populate(
+        "questions",
+        "text options grade subject hint createdAt"
+      );
+
+      res.status(201).json({ quiz: populatedQuiz });
+    })
+    .catch((err) => {
+      console.error("Error generating quiz:", err);
+      res
+        .status(500)
+        .json({ error: "Server error while generating quiz", details: err });
+    });
+};
 
 /**
  * Ask for a hint for a question
@@ -61,17 +81,18 @@ exports.generateQuiz = async (req, res) => {
 exports.getHint = async (req, res) => {
   try {
     const { questionId } = req.query;
-    if (!questionId) return res.status(400).json({ error: 'questionId required' });
+    if (!questionId)
+      return res.status(400).json({ error: "questionId required" });
 
     const question = await Question.findById(questionId);
-    if (!question) return res.status(404).json({ error: 'question not found' });
+    if (!question) return res.status(404).json({ error: "question not found" });
 
     // Groq hint
     const hint = await ai.getHint(question.text);
     res.json({ hint });
   } catch (err) {
-    console.error('Error getting hint:', err);
-    res.status(500).json({ error: 'server error' });
+    console.error("Error getting hint:", err);
+    res.status(500).json({ error: "server error" });
   }
 };
 
@@ -143,8 +164,6 @@ exports.submitQuiz = async (req, res) => {
       score,
       maxScore: quiz.maxScore,
       isRetry: false,
-
-      
     });
 
     // 5️⃣ Send response
@@ -170,16 +189,25 @@ exports.submitQuiz = async (req, res) => {
  */
 exports.getHistory = async (req, res) => {
   try {
-    const { grade, subject, minMarks, maxMarks, from, to, page = 1, limit = 30 } = req.query;
+    const {
+      grade,
+      subject,
+      minMarks,
+      maxMarks,
+      from,
+      to,
+      page = 1,
+      limit = 30,
+    } = req.query;
     const filter = { user: req.user._id };
 
     if (grade) {
-      const quizzes = await Quiz.find({ grade: Number(grade) }).select('_id');
+      const quizzes = await Quiz.find({ grade: Number(grade) }).select("_id");
       filter.quiz = { $in: quizzes.map((q) => q._id) };
     }
 
     if (subject) {
-      const quizzes = await Quiz.find({ subject }).select('_id');
+      const quizzes = await Quiz.find({ subject }).select("_id");
       filter.quiz = filter.quiz
         ? { $in: quizzes.map((q) => q._id) }
         : { $in: quizzes.map((q) => q._id) };
@@ -202,15 +230,18 @@ exports.getHistory = async (req, res) => {
     }
 
     const submissions = await Submission.find(filter)
-      .populate({ path: 'quiz', select: 'grade subject totalQuestions maxScore' })
+      .populate({
+        path: "quiz",
+        select: "grade subject totalQuestions maxScore",
+      })
       .sort({ completedAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
     res.json({ submissions });
   } catch (err) {
-    console.error('Error fetching history:', err);
-    res.status(500).json({ error: 'server error' });
+    console.error("Error fetching history:", err);
+    res.status(500).json({ error: "server error" });
   }
 };
 
@@ -219,21 +250,25 @@ exports.getHistory = async (req, res) => {
  * POST /api/quizzes/:quizId/retry
  * Body: { responses: [...] }
  */
-exports.retryQuiz = async (req, res) => { // resubmit logic
+exports.retryQuiz = async (req, res) => {
+  // resubmit logic
   try {
     const { quizId } = req.params;
     const { responses } = req.body;
-    if (!responses) return res.status(400).json({ error: 'responses required' });
+    if (!responses)
+      return res.status(400).json({ error: "responses required" });
 
-    const quiz = await Quiz.findById(quizId).populate('questions');
-    if (!quiz) return res.status(404).json({ error: 'quiz not found' });
+    const quiz = await Quiz.findById(quizId).populate("questions");
+    if (!quiz) return res.status(404).json({ error: "quiz not found" });
 
     let score = 0;
     const perQuestionScore = quiz.maxScore / quiz.totalQuestions;
     const mistakes = [];
 
     for (const resp of responses) {
-      const q = quiz.questions.find((x) => String(x._id) === String(resp.questionId));
+      const q = quiz.questions.find(
+        (x) => String(x._id) === String(resp.questionId)
+      );
       if (!q) continue;
       if (resp.userResponse === q.correctOption) {
         score += perQuestionScore;
@@ -242,7 +277,7 @@ exports.retryQuiz = async (req, res) => { // resubmit logic
           questionId: q._id,
           text: q.text,
           correctOption: q.correctOption,
-          userResponse: resp.userResponse
+          userResponse: resp.userResponse,
         });
       }
     }
@@ -252,10 +287,13 @@ exports.retryQuiz = async (req, res) => { // resubmit logic
     const submission = await Submission.create({
       quiz: quiz._id,
       user: req.user._id,
-      responses: responses.map((r) => ({ question: r.questionId, userResponse: r.userResponse })),
+      responses: responses.map((r) => ({
+        question: r.questionId,
+        userResponse: r.userResponse,
+      })),
       score,
       maxScore: quiz.maxScore,
-      isRetry: true
+      isRetry: true,
     });
 
     res.json({
@@ -263,16 +301,13 @@ exports.retryQuiz = async (req, res) => { // resubmit logic
       score,
       maxScore: quiz.maxScore,
       mistakes,
-      suggestions
+      suggestions,
     });
   } catch (err) {
-    console.error('Error retrying quiz:', err);
-    res.status(500).json({ error: 'server error' });
+    console.error("Error retrying quiz:", err);
+    res.status(500).json({ error: "server error" });
   }
 };
-
-
-
 
 // exports.retryQuiz = async (req, res) => { // retry logic
 //   const { quizId } = req.params;
