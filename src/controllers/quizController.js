@@ -23,21 +23,27 @@ exports.generateQuiz = (req, res) => {
   }
 
   // 🧠 Create a promise to generate questions using AI
-  const quizPromise = new Promise((resolve, reject) => {
-    ai.generateQuiz({ grade, subject, totalQuestions, difficulty })
-      .then((questionsData) => {
-        if (questionsData && questionsData.length > 0) {
-          resolve(questionsData);
-        } else {
-          reject("AI failed to generate quiz questions");
-        }
-      })
-      .catch((err) => reject(err));
-  });
+  // const quizPromise = new Promise((resolve, reject) => {
+  //   ai.generateQuiz({ grade, subject, totalQuestions, difficulty })
+  //     .then((questionsData) => {
+  //       if (questionsData && questionsData.length > 0) {
+  //         resolve(questionsData);
+  //       } else {
+  //         reject("AI failed to generate quiz questions");
+  //       }
+  //     })
+  //     .catch((err) => reject(err));
+  // });
 
   // 🧩 Handle the resolved data and continue DB operations
-  quizPromise
+  ai.generateQuiz({ grade, subject, totalQuestions, difficulty })
     .then(async (questionsData) => {
+      if (!questionsData || questionsData.length === 0) {
+        return res
+          .status(500)
+          .json({ error: "AI failed to generate quiz questions" });
+      }
+
       // 1️⃣ Create quiz
       const quiz = await Quiz.create({
         creator: req.user._id,
